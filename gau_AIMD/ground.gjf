@@ -1,11 +1,11 @@
  %mem=500MB
  %nproc=2
- #p b3lyp def2svp force
+ #p b3lyp def2svp force units(au)
  
  generate for AIMD to electronic calculate potential and force.
  
 0 1
-O        0.00000000E+00    0.00000000E+00    0.12020700E+00
-H        0.00000000E+00    0.75703900E+00   -0.48082800E+00
-H        0.00000000E+00   -0.75703900E+00   -0.48082800E+00
+O        0.41728237E+01   -0.47479357E+00    0.47447333E+00
+H        0.44982765E+01    0.79939989E+00    0.19811444E+01
+H        0.50830537E+01   -0.14174124E+01    0.18135554E+01
  
