@@ -1,3 +1,15 @@
+! =========================================================
+! AIMD program for H2O molecule
+! Using Gaussian 16 for quantum chemistry calcualtion
+!
+! Complie with def.f90 from wQC
+! =========================================================
+! Written by Baihua Wu, On August 23, 2020
+! Updated by Baihua Wu, On August 23, 2020
+! Email: wubaihua@pku.edu.cn
+!        wubaihua19@gmail.com
+! =========================================================
+! ***************************************************************************  
 program H2O_AIMD
     use def
     implicit real*8(a-h,o-z)
@@ -17,9 +29,9 @@ program H2O_AIMD
     atom(:)%z=atom(:)%z*10.0/5.291772108
     atom(:)%charge=(/8,1,1/)
 
-    beta=10
-    dt=0.1
-    ttot=10
+    beta=50
+    dt=1
+    ttot=100
     nstep=int(ttot/dt)
 
     open(90,file="traj.xyz")
@@ -51,24 +63,14 @@ program H2O_AIMD
 
 
 
-
-
-    ! call gen_gau_input_ground(3,atom)
-    ! call system("g16 ground.gjf")
-    ! call read_gau_output_ground(3,ground_eng,force)
-
-    ! write(*,*) ground_eng
-    ! do i=1,3
-    !     write(*,*) force(i,:)
-    ! end do
-
-
-
-
 end program
 
 
-
+!    ----------------------------------------------------------------------------
+!    -----------------------------------------------------------
+!    Generate the g16 input file for calculate
+!    potential and force of ground state
+!    -----------------------------------------------------------
 subroutine gen_gau_input_ground(Natom,atom)
     use def
     implicit real*8(a-h,o-z)
@@ -96,6 +98,11 @@ subroutine gen_gau_input_ground(Natom,atom)
 
 end subroutine
 
+!    ----------------------------------------------------------------------------
+!    -----------------------------------------------------------
+!    Read the g16 output file to get
+!    potential and force of ground state
+!    -----------------------------------------------------------
 subroutine read_gau_output_ground(Natom,ground_eng,force)
     implicit real*8(a-h,o-z)
     integer Natom
@@ -132,6 +139,10 @@ subroutine read_gau_output_ground(Natom,ground_eng,force)
     close(31)
 end subroutine
 
+!    ----------------------------------------------------------------------------
+!    -----------------------------------------------------------
+!    force calculation in MD process 
+!    -----------------------------------------------------------
 subroutine MD_ground_cal(Natom,atom,force,ground_eng)
     use def
     integer Natom
@@ -144,6 +155,10 @@ subroutine MD_ground_cal(Natom,atom,force,ground_eng)
 
 end subroutine
 
+!    ----------------------------------------------------------------------------
+!    -----------------------------------------------------------
+!    generate the trajectory file and energy file
+!    -----------------------------------------------------------
 subroutine output(idxyz,idE,t,Natom,atom,p,mass,ground_eng)
     use def
     implicit real*8(a-h,o-z)
@@ -171,8 +186,10 @@ subroutine output(idxyz,idE,t,Natom,atom,p,mass,ground_eng)
 end subroutine
 
 
-
-
+!    ----------------------------------------------------------------------------
+!    -----------------------------------------------------------
+!    Box-MUller method for Gaussian distribution
+!    -----------------------------------------------------------
 subroutine box_muller(x1,x2,sigma,miu)
     implicit none
     real*8, parameter :: pi = 3.14159265358979323846
