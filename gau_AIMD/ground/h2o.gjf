@@ -1,6 +1,6 @@
 %mem=500MB
 %nproc=2
-#p opt b3lyp def2svp force
+#p b3lyp def2svp force
 
 Title Card Required
 

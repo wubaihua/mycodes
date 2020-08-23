@@ -1,0 +1,11 @@
+ %mem=500MB
+ %nproc=2
+ #p b3lyp def2svp force units(au) TD
+ 
+ generate for AIMD to electronic calculate potential and force.
+ 
+0 1
+O        0.11224582E+02   -0.21288037E+01    0.11337643E+01
+H        0.10538764E+02    0.54084098E+01    0.39977302E+01
+H        0.99357050E+01    0.70175395E+01    0.29940468E+01
+ 

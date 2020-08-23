@@ -1,5 +1,5 @@
 ! =========================================================
-! AIMD program for H2O molecule
+! AIMD program for H2O molecule in ground/excited state
 ! Using Gaussian 16 for quantum chemistry calcualtion
 !
 ! Complie with def.f90 from wQC
@@ -15,15 +15,21 @@ program H2O_AIMD
     implicit real*8(a-h,o-z)
     type(atomtype) :: atom(3)
     real*8 force(3,3)!1 for atom, 2 for x/y/z
-    real*8 ground_eng
+    real*8 ground_eng,excited_eng
     real*8 mass(3),p(3,3)
 
     mass=(/15.9994_8,1.00794_8,1.00794_8/)
     atom(:)%name=(/"O ","H ","H "/)
     atom(:)%index=(/8,1,1/)
+
+    ! atom(:)%x=(/0.0_8, 0.0_8, 0.0_8/)
+    ! atom(:)%y=(/0.0_8, 0.75703900_8, -0.75703900_8/)
+    ! atom(:)%z=(/0.12020700_8, -0.48082800_8, -0.48082800_8/)
+
     atom(:)%x=(/0.0_8, 0.0_8, 0.0_8/)
-    atom(:)%y=(/0.0_8, 0.75703900_8, -0.75703900_8/)
-    atom(:)%z=(/0.12020700_8, -0.48082800_8, -0.48082800_8/)
+    atom(:)%y=(/0.0_8, 1.24175300_8, -1.24175300_8/)
+    atom(:)%z=(/-0.00004600_8, 0.00018400_8, 0.00018400_8/)
+
     atom(:)%x=atom(:)%x*10.0/5.291772108
     atom(:)%y=atom(:)%y*10.0/5.291772108
     atom(:)%z=atom(:)%z*10.0/5.291772108
@@ -45,21 +51,27 @@ program H2O_AIMD
 
     t_now=0
     do i=1,nstep
-        call MD_ground_cal(3,atom,force,ground_eng)
+        ! call MD_ground_cal(3,atom,force,ground_eng)
+        call MD_excited_cal(3,atom,force,excited_eng)
         p(:,:)=p(:,:)+force(:,:)*dt/2
 
         atom(:)%x=atom(:)%x+p(:,1)*dt/mass(:)
         atom(:)%y=atom(:)%y+p(:,2)*dt/mass(:)
         atom(:)%z=atom(:)%z+p(:,3)*dt/mass(:)
 
-        call MD_ground_cal(3,atom,force,ground_eng)
+        ! call MD_ground_cal(3,atom,force,ground_eng)
+        call MD_excited_cal(3,atom,force,excited_eng)
         p(:,:)=p(:,:)+force(:,:)*dt/2
 
         t_now=t_now+dt
 
-        call output(90,91,t_now,3,atom,p,mass,ground_eng)
+        !call output(90,91,t_now,3,atom,p,mass,ground_eng)
+        call output(90,91,t_now,3,atom,p,mass,excited_eng)
 
     end do
+
+    ! call MD_excited_cal(3,atom,force,excited_eng)
+    ! write(*,*) excited_eng
 
 
 
@@ -141,7 +153,7 @@ end subroutine
 
 !    ----------------------------------------------------------------------------
 !    -----------------------------------------------------------
-!    force calculation in MD process 
+!    ground force calculation in MD process 
 !    -----------------------------------------------------------
 subroutine MD_ground_cal(Natom,atom,force,ground_eng)
     use def
@@ -157,14 +169,106 @@ end subroutine
 
 !    ----------------------------------------------------------------------------
 !    -----------------------------------------------------------
-!    generate the trajectory file and energy file
+!    Generate the g16 input file for calculate
+!    potential and force of excited state
 !    -----------------------------------------------------------
-subroutine output(idxyz,idE,t,Natom,atom,p,mass,ground_eng)
+subroutine gen_gau_input_excited(Natom,atom)
+    use def
+    implicit real*8(a-h,o-z)
+    integer Natom
+    type(atomtype), intent(in) :: atom(Natom)
+
+    open(21,file="excited.gjf",status="REPLACE")
+    write(21,*) "%mem=500MB"
+    write(21,*) "%nproc=2"
+    write(21,*) "#p b3lyp def2svp force units(au) TD"
+    write(21,*)
+    write(21,*) "generate for AIMD to electronic calculate potential and force."
+    write(21,*)
+    
+    write(21,"(A3)") "0 1"
+    do i=1,Natom
+        write(21,"(A2,3X,3E18.8)") atom(i)%name, atom(i)%x, atom(i)%y, atom(i)%z
+    end do
+    write(21,*)
+
+    close(21)
+
+
+
+
+end subroutine
+
+!    ----------------------------------------------------------------------------
+!    -----------------------------------------------------------
+!    Read the g16 output file to get
+!    potential and force of excited state
+!    -----------------------------------------------------------
+subroutine read_gau_output_excited(Natom,excited_eng,force)
+    implicit real*8(a-h,o-z)
+    integer Natom
+    real*8 force(Natom,3),excited_eng
+    character*200 c200
+    character*31 c31
+
+    open(41,file="excited.log")
+    do while(.true.)
+        read(41,"(a)") c200
+        ! write(*,"(a)") c200
+        if(index(c200,"Total Energy, E(TD-HF/TD-DFT)")/=0)then
+            ! write(*,"(a)") c200
+            ! backspace(41)
+            ! read(41,"(a,E18.8)") c31,excited_eng
+            ! write(*,*)  c31
+            id=index(c200,"=")
+            c200(1:id)=" "
+            read(c200,*) excited_eng
+            exit
+        end if
+    end do
+
+    do while(.true.)
+        read(41,"(a)") c200
+        if(index(c200,"Forces (Hartrees/Bohr)")/=0)then
+            read(41,"(a)") c200
+            read(41,"(a)") c200
+            !write(*,*) c200
+            do i=1,Natom
+                read(41,*) m,n,force(i,:)
+                
+            end do
+            exit
+        end if
+    end do
+    close(41)
+end subroutine
+
+!    ----------------------------------------------------------------------------
+!    -----------------------------------------------------------
+!    excited force calculation in MD process 
+!    -----------------------------------------------------------
+subroutine MD_excited_cal(Natom,atom,force,excited_eng)
+    use def
+    integer Natom
+    type(atomtype), intent(in) :: atom(Natom)
+    real*8 force(Natom,3),excited_eng
+
+    call gen_gau_input_excited(Natom,atom)
+    call system("g16 excited.gjf")
+    call read_gau_output_excited(Natom,excited_eng,force)
+
+end subroutine
+
+!    ----------------------------------------------------------------------------
+!    -----------------------------------------------------------
+!    write the trajectory file and energy file
+!    -----------------------------------------------------------
+subroutine output(idxyz,idE,t,Natom,atom,p,mass,potential)
     use def
     implicit real*8(a-h,o-z)
     integer Natom,idxyz,idE
     type(atomtype), intent(in) :: atom(Natom)
-    real*8 ground_eng,p(Natom,3),mass(3),t
+    real*8 potential,p(Natom,3),mass(3),t
     real*8 K
 
     write(idxyz,*) Natom
@@ -178,7 +282,7 @@ subroutine output(idxyz,idE,t,Natom,atom,p,mass,ground_eng)
         K=K+sum(p(:,i)**2/(2*mass(:)))
     end do
 
-    write(idE,"(4E18.8)") t,K,ground_eng,K+ground_eng
+    write(idE,"(4E18.8)") t,K,potential,K+potential
 
 
 
