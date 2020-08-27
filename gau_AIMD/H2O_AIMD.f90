@@ -39,21 +39,26 @@ program H2O_AIMD
 
     beta=50
     dt=1
-    ttot=10
+    ttot=20
     nstep=int(ttot/dt)
-    Ntraj=1
+    Ntraj=5
 
     
 
-    do i=1,3
-        call box_muller(p(i,1),x2,sqrt(mass(i)/beta),0.0_8)
-        call box_muller(p(i,2),x2,sqrt(mass(i)/beta),0.0_8)
-        call box_muller(p(i,3),x2,sqrt(mass(i)/beta),0.0_8)
-    end do
+    ! do i=1,3
+    !     call box_muller(p(i,1),x2,sqrt(mass(i)/beta),0.0_8)
+    !     call box_muller(p(i,2),x2,sqrt(mass(i)/beta),0.0_8)
+    !     call box_muller(p(i,3),x2,sqrt(mass(i)/beta),0.0_8)
+    ! end do
 
     do itraj=1,Ntraj
+        do i=1,3
+            call box_muller(p(i,1),x2,sqrt(mass(i)/beta),0.0_8)
+            call box_muller(p(i,2),x2,sqrt(mass(i)/beta),0.0_8)
+            call box_muller(p(i,3),x2,sqrt(mass(i)/beta),0.0_8)
+        end do
         write(ctraj,"(I10)") itraj
-        write(*,*) ctraj
+        ! write(*,*) ctraj
         inquire(DIRECTORY="itraj_"//trim(adjustl(ctraj)),exist=alive)
         if(.not.alive)then
             call system("mkdir itraj_"//trim(adjustl(ctraj)))
@@ -76,8 +81,8 @@ program H2O_AIMD
 
             t_now=t_now+dt
 
-            !call output(90,91,t_now,3,atom,p,mass,ground_eng)
-            call output(90,91,t_now,3,atom,p,mass,excited_eng)
+            call output(90,91,t_now,3,atom,p,mass,ground_eng)
+            ! call output(90,91,t_now,3,atom,p,mass,excited_eng)
 
         end do
         close(90)
