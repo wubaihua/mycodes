@@ -17,18 +17,20 @@ program H2O_AIMD
     real*8 force(3,3)!1 for atom, 2 for x/y/z
     real*8 ground_eng,excited_eng
     real*8 mass(3),p(3,3)
+    character*10 ctraj
+    logical alive
 
     mass=(/15.9994_8,1.00794_8,1.00794_8/)
     atom(:)%name=(/"O ","H ","H "/)
     atom(:)%index=(/8,1,1/)
 
-    ! atom(:)%x=(/0.0_8, 0.0_8, 0.0_8/)
-    ! atom(:)%y=(/0.0_8, 0.75703900_8, -0.75703900_8/)
-    ! atom(:)%z=(/0.12020700_8, -0.48082800_8, -0.48082800_8/)
-
     atom(:)%x=(/0.0_8, 0.0_8, 0.0_8/)
-    atom(:)%y=(/0.0_8, 1.24175300_8, -1.24175300_8/)
-    atom(:)%z=(/-0.00004600_8, 0.00018400_8, 0.00018400_8/)
+    atom(:)%y=(/0.0_8, 0.75703900_8, -0.75703900_8/)
+    atom(:)%z=(/0.12020700_8, -0.48082800_8, -0.48082800_8/)
+
+    ! atom(:)%x=(/0.0_8, 0.0_8, 0.0_8/)
+    ! atom(:)%y=(/0.0_8, 1.24175300_8, -1.24175300_8/)
+    ! atom(:)%z=(/-0.00004600_8, 0.00018400_8, 0.00018400_8/)
 
     atom(:)%x=atom(:)%x*10.0/5.291772108
     atom(:)%y=atom(:)%y*10.0/5.291772108
@@ -37,11 +39,11 @@ program H2O_AIMD
 
     beta=50
     dt=1
-    ttot=100
+    ttot=10
     nstep=int(ttot/dt)
+    Ntraj=1
 
-    open(90,file="traj.xyz")
-    open(91,file="energy.dat")
+    
 
     do i=1,3
         call box_muller(p(i,1),x2,sqrt(mass(i)/beta),0.0_8)
@@ -49,31 +51,38 @@ program H2O_AIMD
         call box_muller(p(i,3),x2,sqrt(mass(i)/beta),0.0_8)
     end do
 
-    t_now=0
-    do i=1,nstep
-        ! call MD_ground_cal(3,atom,force,ground_eng)
-        call MD_excited_cal(3,atom,force,excited_eng)
-        p(:,:)=p(:,:)+force(:,:)*dt/2
+    do itraj=1,Ntraj
+        write(ctraj,"(I10)") itraj
+        write(*,*) ctraj
+        inquire(DIRECTORY="itraj_"//trim(adjustl(ctraj)),exist=alive)
+        if(.not.alive)then
+            call system("mkdir itraj_"//trim(adjustl(ctraj)))
+        end if
+        open(90,file="itraj_"//trim(adjustl(ctraj))//"/traj.xyz")
+        open(91,file="itraj_"//trim(adjustl(ctraj))//"/energy.dat")
+        t_now=0
+        do i=1,nstep
+            call MD_ground_cal(itraj,3,atom,force,ground_eng)
+            ! call MD_excited_cal(3,atom,force,excited_eng)
+            p(:,:)=p(:,:)+force(:,:)*dt/2
 
-        atom(:)%x=atom(:)%x+p(:,1)*dt/mass(:)
-        atom(:)%y=atom(:)%y+p(:,2)*dt/mass(:)
-        atom(:)%z=atom(:)%z+p(:,3)*dt/mass(:)
+            atom(:)%x=atom(:)%x+p(:,1)*dt/mass(:)
+            atom(:)%y=atom(:)%y+p(:,2)*dt/mass(:)
+            atom(:)%z=atom(:)%z+p(:,3)*dt/mass(:)
 
-        ! call MD_ground_cal(3,atom,force,ground_eng)
-        call MD_excited_cal(3,atom,force,excited_eng)
-        p(:,:)=p(:,:)+force(:,:)*dt/2
+            call MD_ground_cal(itraj,3,atom,force,ground_eng)
+            ! call MD_excited_cal(3,atom,force,excited_eng)
+            p(:,:)=p(:,:)+force(:,:)*dt/2
 
-        t_now=t_now+dt
+            t_now=t_now+dt
 
-        !call output(90,91,t_now,3,atom,p,mass,ground_eng)
-        call output(90,91,t_now,3,atom,p,mass,excited_eng)
+            !call output(90,91,t_now,3,atom,p,mass,ground_eng)
+            call output(90,91,t_now,3,atom,p,mass,excited_eng)
 
+        end do
+        close(90)
+        close(91)
     end do
-
-    ! call MD_excited_cal(3,atom,force,excited_eng)
-    ! write(*,*) excited_eng
-
-
 
 end program
 
@@ -83,13 +92,22 @@ end program
 !    Generate the g16 input file for calculate
 !    potential and force of ground state
 !    -----------------------------------------------------------
-subroutine gen_gau_input_ground(Natom,atom)
+subroutine gen_gau_input_ground(itraj,Natom,atom)
     use def
     implicit real*8(a-h,o-z)
-    integer Natom
+    integer Natom,itraj
     type(atomtype), intent(in) :: atom(Natom)
+    character*10 ctraj
+    logical alive
 
-    open(20,file="ground.gjf",status="REPLACE")
+    write(ctraj,"(I10)") itraj
+
+    ! inquire(DIRECTORY="itraj_"//trim(adjustl(ctraj)),exist=alive)
+    ! if(.not.alive)then
+    !     call system("mkdir itraj_"//trim(adjustl(ctraj)))
+    ! end if
+
+    open(20,file="itraj_"//trim(adjustl(ctraj))//"/ground.gjf",status="REPLACE")
     write(20,*) "%mem=500MB"
     write(20,*) "%nproc=2"
     write(20,*) "#p b3lyp def2svp force units(au)"
@@ -115,14 +133,17 @@ end subroutine
 !    Read the g16 output file to get
 !    potential and force of ground state
 !    -----------------------------------------------------------
-subroutine read_gau_output_ground(Natom,ground_eng,force)
+subroutine read_gau_output_ground(itraj,Natom,ground_eng,force)
     implicit real*8(a-h,o-z)
-    integer Natom
+    integer Natom,itraj
     real*8 force(Natom,3),ground_eng
     character*200 c200
     character*20 c20
+    character*10 ctraj
 
-    open(31,file="ground.log")
+    write(ctraj,"(I10)") itraj
+
+    open(31,file="itraj_"//trim(adjustl(ctraj))//"/ground.log")
     do while(.true.)
         read(31,"(a)") c200
         ! write(*,"(a)") c200
@@ -155,15 +176,18 @@ end subroutine
 !    -----------------------------------------------------------
 !    ground force calculation in MD process 
 !    -----------------------------------------------------------
-subroutine MD_ground_cal(Natom,atom,force,ground_eng)
+subroutine MD_ground_cal(itraj,Natom,atom,force,ground_eng)
     use def
-    integer Natom
+    integer Natom,itraj
     type(atomtype), intent(in) :: atom(Natom)
     real*8 force(Natom,3),ground_eng
+    character*10 ctraj
 
-    call gen_gau_input_ground(Natom,atom)
-    call system("g16 ground.gjf")
-    call read_gau_output_ground(Natom,ground_eng,force)
+    write(ctraj,"(I10)") itraj
+
+    call gen_gau_input_ground(itraj,Natom,atom)
+    call system("g16 "//"itraj_"//trim(adjustl(ctraj))//"/ground.gjf")
+    call read_gau_output_ground(itraj,Natom,ground_eng,force)
 
 end subroutine
 
