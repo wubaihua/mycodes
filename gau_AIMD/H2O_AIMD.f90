@@ -115,7 +115,7 @@ subroutine gen_gau_input_ground(itraj,Natom,atom)
     open(20,file="itraj_"//trim(adjustl(ctraj))//"/ground.gjf",status="REPLACE")
     write(20,*) "%mem=500MB"
     write(20,*) "%nproc=2"
-    write(20,*) "#p b3lyp def2svp force units(au)"
+    write(20,*) "#p b3lyp def2svp force units(au) nosymm"
     write(20,*)
     write(20,*) "generate for AIMD to electronic calculate potential and force."
     write(20,*)
@@ -210,7 +210,7 @@ subroutine gen_gau_input_excited(Natom,atom)
     open(21,file="excited.gjf",status="REPLACE")
     write(21,*) "%mem=500MB"
     write(21,*) "%nproc=2"
-    write(21,*) "#p b3lyp def2svp force units(au) TD"
+    write(21,*) "#p b3lyp def2svp force units(au) TD nosymm"
     write(21,*)
     write(21,*) "generate for AIMD to electronic calculate potential and force."
     write(21,*)

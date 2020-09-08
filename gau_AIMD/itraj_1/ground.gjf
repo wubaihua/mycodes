@@ -1,11 +1,11 @@
  %mem=500MB
  %nproc=2
- #p b3lyp def2svp force units(au)
+ #p b3lyp def2svp force units(au) nosymm
  
  generate for AIMD to electronic calculate potential and force.
  
 0 1
-O        0.37705916E+01   -0.42251777E+00    0.70298895E+00
-H        0.38305020E+01    0.92061515E+00   -0.54358829E+00
-H        0.48162639E+01   -0.15811916E+01   -0.20977519E+00
+O        0.37705909E+01   -0.42251952E+00    0.70298794E+00
+H        0.38305258E+01    0.92064142E+00   -0.54356149E+00
+H        0.48162512E+01   -0.15811901E+01   -0.20978602E+00
  
