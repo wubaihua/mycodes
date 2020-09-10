@@ -15,6 +15,7 @@ program H2O_AIMD
     implicit real*8(a-h,o-z)
     type(atomtype) :: atom(3)
     real*8 force(3,3)!1 for atom, 2 for x/y/z
+    real*8 NACV(3,3)!1 for atom, 2 for x/y/z
     real*8 ground_eng,excited_eng
     real*8 mass(3),p(3,3)
     character*10 ctraj
@@ -41,7 +42,7 @@ program H2O_AIMD
     dt=1
     ttot=20
     nstep=int(ttot/dt)
-    Ntraj=5
+    Ntraj=1
 
     
 
@@ -67,23 +68,23 @@ program H2O_AIMD
         open(91,file="itraj_"//trim(adjustl(ctraj))//"/energy.dat")
         t_now=0
         do i=1,nstep
-            call MD_ground_cal(itraj,3,atom,force,ground_eng)
-            ! call MD_excited_cal(3,atom,force,excited_eng)
+            ! call MD_ground_cal(itraj,3,atom,force,ground_eng)
+            call MD_excited_cal(3,atom,force,excited_eng,NACV)
             p(:,:)=p(:,:)+force(:,:)*dt/2
 
             atom(:)%x=atom(:)%x+p(:,1)*dt/mass(:)
             atom(:)%y=atom(:)%y+p(:,2)*dt/mass(:)
             atom(:)%z=atom(:)%z+p(:,3)*dt/mass(:)
 
-            call MD_ground_cal(itraj,3,atom,force,ground_eng)
-            ! call MD_excited_cal(3,atom,force,excited_eng)
+            ! call MD_ground_cal(itraj,3,atom,force,ground_eng)
+            call MD_excited_cal(3,atom,force,excited_eng,NACV)
             p(:,:)=p(:,:)+force(:,:)*dt/2
 
             t_now=t_now+dt
 
-            call output(90,91,t_now,3,atom,p,mass,ground_eng)
-            ! call output(90,91,t_now,3,atom,p,mass,excited_eng)
-
+            ! call output(90,91,t_now,3,atom,p,mass,ground_eng)
+            call output(90,91,t_now,3,atom,p,mass,excited_eng)
+            write(*,*) NACV
         end do
         close(90)
         close(91)
@@ -210,7 +211,7 @@ subroutine gen_gau_input_excited(Natom,atom)
     open(21,file="excited.gjf",status="REPLACE")
     write(21,*) "%mem=500MB"
     write(21,*) "%nproc=2"
-    write(21,*) "#p b3lyp def2svp force units(au) TD nosymm"
+    write(21,*) "#p b3lyp def2svp force units(au) TD(NAC) nosymm"
     write(21,*)
     write(21,*) "generate for AIMD to electronic calculate potential and force."
     write(21,*)
@@ -233,10 +234,10 @@ end subroutine
 !    Read the g16 output file to get
 !    potential and force of excited state
 !    -----------------------------------------------------------
-subroutine read_gau_output_excited(Natom,excited_eng,force)
+subroutine read_gau_output_excited(Natom,excited_eng,force,NACV)
     implicit real*8(a-h,o-z)
     integer Natom
-    real*8 force(Natom,3),excited_eng
+    real*8 force(Natom,3),excited_eng,NACV(Natom,3)
     character*200 c200
     character*31 c31
 
@@ -269,6 +270,22 @@ subroutine read_gau_output_excited(Natom,excited_eng,force)
             exit
         end if
     end do
+
+    do while(.true.)
+        read(41,"(a)") c200
+        if(index(c200,"Nonadiabatic Coup.")/=0)then
+            read(41,"(a)") c200
+            read(41,"(a)") c200
+            !write(*,*) c200
+            do i=1,Natom
+                read(41,*) m,n,NACV(i,:)
+                
+            end do
+            exit
+        end if
+    end do
+
+    
     close(41)
 end subroutine
 
@@ -276,15 +293,15 @@ end subroutine
 !    -----------------------------------------------------------
 !    excited force calculation in MD process 
 !    -----------------------------------------------------------
-subroutine MD_excited_cal(Natom,atom,force,excited_eng)
+subroutine MD_excited_cal(Natom,atom,force,excited_eng,NACV)
     use def
     integer Natom
     type(atomtype), intent(in) :: atom(Natom)
-    real*8 force(Natom,3),excited_eng
+    real*8 force(Natom,3),excited_eng,NACV(Natom,3)
 
     call gen_gau_input_excited(Natom,atom)
     call system("g16 excited.gjf")
-    call read_gau_output_excited(Natom,excited_eng,force)
+    call read_gau_output_excited(Natom,excited_eng,force,NACV)
 
 end subroutine
 
