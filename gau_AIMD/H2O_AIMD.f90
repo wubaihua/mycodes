@@ -149,6 +149,26 @@ subroutine read_gau_output_ground(itraj,Natom,ground_eng,force)
 
     write(ctraj,"(I10)") itraj
 
+    inquire(file="itraj_"//trim(adjustl(ctraj))//"/ground.log",exist=alive)
+    if(.not.alive)then
+        write(idlog,"(a)") 'Gaussian log file for ground state not found! '
+        return
+    end if
+        
+    open(401,file="itraj_"//trim(adjustl(ctraj))//"/ground.log",status='old',position='append')
+    backspace(401)
+    read(401,"(a)") c200
+    if(c200(2:7)=='Normal')then
+        write(idlog,"(a)") 'Gaussian ground state end Normally'
+    else
+        write(idlog,"(a)") 'Gaussian ground state end Error! '
+        return
+    end if
+        
+    close(401)
+
+    
+
     open(31,file="itraj_"//trim(adjustl(ctraj))//"/ground.log")
     do while(.true.)
         read(31,"(a)") c200
@@ -240,6 +260,23 @@ subroutine read_gau_output_excited(Natom,excited_eng,force,NACV)
     real*8 force(Natom,3),excited_eng,NACV(Natom,3)
     character*200 c200
     character*31 c31
+
+    inquire(file="excited.log",exist=alive)
+    if(.not.alive)then
+        write(*,"(a)") 'Gaussian log file for excited state not found! '
+        return
+    end if
+        
+    open(401,file='excited.log',status='old',position='append')
+    backspace(401)
+    read(401,"(a)") c200
+    if(c200(2:7)=='Normal')then
+        write(*,"(a)") 'Gaussian excited state end Normally'
+    else
+        write(*,"(a)") 'Gaussian excited state end Error! '
+        return
+    end if
+    close(401)
 
     open(41,file="excited.log")
     do while(.true.)
