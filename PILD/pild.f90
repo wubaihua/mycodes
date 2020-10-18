@@ -15,7 +15,7 @@ subroutine cal_thermmass(itype,x,beta,mass,thermmass)
     end if
     
    thermmass=mass*Q
-    
+    ! thermmass=Q    
 end subroutine
 
 
@@ -67,7 +67,7 @@ subroutine pild_A(dt,mass,omega_ad,m4p,u,p,Nbeads)
 end subroutine
 
 
-subroutine pild_B(dt,beta,mass,u,p,itype,Nbeads)
+subroutine pild_B(dt,beta,mass,u,p,itype,Nbeads,thermmass)
     implicit real*8(a-h,o-z)
     integer itype,Nbeads
     real*8 dt,thermmass,mass,beta,x(Nbeads)
@@ -79,7 +79,7 @@ subroutine pild_B(dt,beta,mass,u,p,itype,Nbeads)
     call staging(x,u,Nbeads)
     allocate(f(Nbeads))
     
-    call cal_thermmass(itype,x(1),beta,mass,thermmass)
+    ! call cal_thermmass(itype,x(1),beta,mass,thermmass)
     
     call pild_force(u,f,Nbeads,itype)
     
@@ -114,7 +114,7 @@ subroutine pild_O(dt,p,omega_ad,m4p,beta,Nbeads)
         call box_muller(eta(i),x2, 1.0_8, 0.0_8)
     end do
         
-    gamma_lang=2*omega_ad
+    gamma_lang=2*omega_ad*0.01
     c1=exp(-gamma_lang*dt)
     c2=sqrt(1-c1**2)
     

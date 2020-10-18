@@ -13,11 +13,11 @@ program pild
     
     
     
-    Nbeads=100
+    Nbeads=50
     beta=8
-    itype=2
+    itype=3
     
-    Ntraj=20
+    Ntraj=100
     x0=0
     mass=1
     
@@ -31,13 +31,13 @@ program pild
     
     igrid=100
     
-    ttot_pimd=500
+    ttot_pimd=300
     dt_pimd=0.001
     
    
     
     ttot_pild=14
-    dt_pild=0.0001
+    dt_pild=0.00005
     
     
     
@@ -48,17 +48,19 @@ program pild
     allocate(m4u(Nbeads))
     allocate(m4pild(Nbeads))
     allocate(corre_fun(2,int(ttot_pild/dt_pild),Ntraj))
+    call pimd_mass(mass,m4u,m4p,Nbeads)
+    m4pild=m4u*gamma_ad
     do itraj=1,Ntraj
-        u=x0
+        u=0
     
         do i=1,nBeads
             call box_muller(p(i),x22,sqrt(mass/beta),0.0_8)
         end do
-        call pimd_mass(mass,m4u,m4p,Nbeads)
-        m4pild=m4u*gamma_ad
+       
         t=0
         nstep=int(ttot_pimd/dt_pimd)
-    
+        ntm=0
+        thermmass=0
         do itime=1,nstep
         
             call pimd_B(dt_pimd/2,omega,u,p,itype,Nbeads)
@@ -70,14 +72,26 @@ program pild
             
             
             t=t+dt
+
+            ! if(t>300)then
+            !     do ib=1,Nbeads
+            !         call cal_thermmass(itype,u(ib),beta,mass,thermmass0)
+            !     end do
+            ! end do
+
+
+
+
         end do
         
         x0=u(1)
         call cal_thermmass(itype,x0,beta,mass,thermmass)
         call box_muller(p(1),x2,sqrt(thermmass/beta),0.0_8)
-        do j=2,Nbeads
-            call box_muller(p(j),x2,sqrt(m4pild(j)/beta),0.0_8)
-        end do
+        ! do j=2,Nbeads
+        !     call box_muller(p(j),x2,sqrt(m4pild(j)/beta),0.0_8)
+        !     ! call box_muller(u(j),x2,sqrt(1.0_8/(beta*m4pild(j)))/omega_ad,0.0_8)
+        ! end do
+        p(2:Nbeads)=p(2:Nbeads)*sqrt(gamma_ad)
         p0=p(1)
         
         t=0
@@ -86,20 +100,22 @@ program pild
         
         
         do itime=1,nstep
-        
-            call pild_B(dt_pild/2,beta,mass,u,p,itype,Nbeads)
+            call cal_thermmass(itype,u(1),beta,mass,thermmass)
+            call pild_B(dt_pild/2,beta,mass,u,p,itype,Nbeads,thermmass)
             call pild_A(dt_pild/2,mass,omega_ad,m4pild,u,p,Nbeads)
             call pild_O(dt_pild,p,omega_ad,m4pild,beta,Nbeads)
             call pild_A(dt_pild/2,mass,omega_ad,m4pild,u,p,Nbeads)
-            call pild_B(dt_pild/2,beta,mass,u,p,itype,Nbeads)
+            call cal_thermmass(itype,u(1),beta,mass,thermmass)
+            call pild_B(dt_pild/2,beta,mass,u,p,itype,Nbeads,thermmass)
             t=t+dt
             !write(*,*) u(:)
             !write(*,*) p(:)
+            call cal_thermmass(itype,u(1),beta,mass,thermmass)
             call staging(x,u,Nbeads)
             corre_fun(1,itime,itraj)=(x0**2+0.25*beta/thermmass-beta**2*p0**2/(4*thermmass**2))*x(1)**2
             corre_fun(2,itime,itraj)=mass*p0*p(1)/thermmass
 
-            ! call cal_thermmass(itype,u(1),beta,mass,thermmass)
+            
             
             !write(*,*) t
         end do

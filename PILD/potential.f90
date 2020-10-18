@@ -17,7 +17,7 @@ end function
 
 function dVpot(itype,x)
     implicit real*8(a-h,o-z)
-    real*8 x,vpot
+    real*8 x,dvpot
     integer itype
     
     select case(itype)

@@ -4,14 +4,15 @@ program dvr_dual_ho
     real*8,allocatable :: T(:,:),V(:,:),H(:,:),E(:),R(:),work(:),lambda(:,:),U(:,:)
     complex*8,allocatable :: pro(:,:),c(:),c0(:)
     complex*8,parameter :: im=(0.0_8,1.0_8)
+    real*8,allocatable :: time(:),rho(:,:)
     real*8,parameter :: pi=3.14159265358979
-    real*8 mass
+    real*8 mass,nowtime
     
     
     open(21,file="result.dat")
     
     Nstate=2
-    dx=0.01
+    dx=0.1
     x_min=-10
     x_max=10
     ngrid=int((x_max-x_min)/dx)
@@ -34,7 +35,7 @@ program dvr_dual_ho
     
     
     omega1=1
-    omega2=2
+    omega2=1
     eps=1
     delta=1
     mass=1
@@ -42,7 +43,10 @@ program dvr_dual_ho
     p0=0
     
     ttot=10
-    dt=0.01
+    dt=0.1
+
+    allocate(time(int(ttot/dt)+1))
+    allocate(rho(Nstate,int(ttot/dt)+1))
     
     T=0
     V=0
@@ -93,33 +97,41 @@ program dvr_dual_ho
     !!do i=1,10
     !    write(*,*) E(:)
     !!end do
-    time=0
+    nowtime=0
     rho1=sum(real(c(1:Ngrid))**2+imag(c(1:Ngrid))**2)*dx
     rho2=sum(real(c(1+Ngrid:2*Ngrid))**2+imag(c(1+Ngrid:2*Ngrid))**2)*dx
-    write(21,*) time,rho1,rho2
+    time(1)=nowtime
+    rho(1,1)=rho1
+    rho(2,1)=rho2
+    ! write(21,*) time,rho1,rho2
     
     
-    
+    !$OMP PARALLEL DO DEFAULT(PRIVATE) SHARED(time,rho,ttot,dt,Nstate,Ngrid,dx,E,U,c0) num_threads(4) 
     do i=1,int(ttot/dt)
         !c=c-im*matmul(H,c)*dt
         !cd=cd-im*matmul(lambda,cd)*dt
-        time=time+dt
+        nowtime=(i+1)*dt
         pro=0
         do k=1,Nstate*Ngrid
-            pro(k,k)=cos(E(k)*time)-im*sin(E(k)*time)
+            pro(k,k)=cos(E(k)*nowtime)-im*sin(E(k)*nowtime)
         end do
         pro=matmul(U,matmul(pro,transpose(U)))
         c=matmul(pro,c0)
         !c=matmul(transpose(U),cd)
         rho1=sum(real(c(1:Ngrid))**2+imag(c(1:Ngrid))**2)*dx
         rho2=sum(real(c(1+Ngrid:2*Ngrid))**2+imag(c(1+Ngrid:2*Ngrid))**2)*dx
-        write(21,*) time,rho1,rho2
-    
         
-        
+        time(i+1)=nowtime
+        rho(1,i+1)=rho1
+        rho(2,i+1)=rho2
+        ! write(21,*) time,rho1,rho2
     end do
+    !$OMP END PARALLEL DO
     
         
+    do i=1,int(ttot/dt)+1
+        write(21,*) time(i),rho(:,i)
+    end do 
     
     
     
@@ -130,6 +142,5 @@ program dvr_dual_ho
     
     
     
-    
- pause   
+!  pause   
 end program
