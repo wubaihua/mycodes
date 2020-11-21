@@ -24,7 +24,7 @@ program pild
     
     Nbeads=50
     beta=8
-    itype=3
+    itype=2
     
     Ntraj=40
     x0=0
@@ -35,13 +35,13 @@ program pild
     
     omega=sqrt(real(Nbeads))/beta
     
-    gamma_ad=1E-4
+    gamma_ad=1E-5
     omega_ad=omega/sqrt(gamma_ad)
     
     igrid=100
     
     ttot_pimd=500
-    dt_pimd=0.001
+    dt_pimd=0.01
     
    
     
@@ -129,31 +129,42 @@ program pild
         ! stop
     end if
 
-
-
-    ! do itraj=1,Ntraj
-    !         call mpi_send(itraj,1,mpi_integer,0,mpi_rank+mpi_size,mpi_comm_world,mpi_ierr)
-    !         call mpi_send(thm_traj(itraj),1,mpi_double,0,mpi_rank,mpi_comm_world,mpi_ierr)
-    !         call mpi_send(u0(itraj,:),Nbeads,mpi_double,0,mpi_rank+2*mpi_size,mpi_comm_world,mpi_ierr)
-    !     end do
     call mpi_barrier(mpi_comm_world,mpi_ierr)
 
 
+    if(mpi_rank==0)then
+        do irec=1,mpi_size-1
+            ! call mpi_send(itraj+irec,1,mpi_integer,irec,irec+mpi_size,mpi_comm_world,mpi_ierr)
+            call mpi_send(thermmass,1,mpi_double,irec,irec,mpi_comm_world,mpi_ierr)
+            call mpi_send(u0(:,:),Ntraj*Nbeads,mpi_double,irec,irec+2*mpi_size,mpi_comm_world,mpi_ierr)
+        end do
+    else              
+        ! call mpi_recv(itraj_rec,1,mpi_integer,irec,irec+mpi_size,mpi_comm_world,status,mpi_ierr)
+        call mpi_recv(thermmass,1,mpi_double,0,mpi_rank,mpi_comm_world,status,mpi_ierr)
+        call mpi_recv(u0(:,:),Ntraj*Nbeads,mpi_double,0,mpi_rank+2*mpi_size,mpi_comm_world,status,mpi_ierr)
+    end if
 
+    call mpi_barrier(mpi_comm_world,mpi_ierr)
+    ! write(*,*) "thermmass=",thermmass
+    ! write(*,*) "u0=",u0
+    ! stop
+    call init_seed(mpi_rank)
     do itraj=1,Ntraj
         if (mod(itraj, mpi_size) == mpi_rank) then
-            if(mpi_rank==0)then
-                do irec=1,mpi_size-1
-                    ! call mpi_send(itraj+irec,1,mpi_integer,irec,irec+mpi_size,mpi_comm_world,mpi_ierr)
-                    call mpi_send(thermmass,1,mpi_double,irec,1,mpi_comm_world,mpi_ierr)
-                    call mpi_send(u0(itraj+irec,:),Nbeads,mpi_double,irec,irec+2*mpi_size,mpi_comm_world,mpi_ierr)
-                end do
-            else              
-                ! call mpi_recv(itraj_rec,1,mpi_integer,irec,irec+mpi_size,mpi_comm_world,status,mpi_ierr)
-                call mpi_recv(thermmass,1,mpi_double,0,1,mpi_comm_world,status,mpi_ierr)
-                call mpi_recv(u0(itraj,:),Nbeads,mpi_double,0,mpi_rank+2*mpi_size,mpi_comm_world,status,mpi_ierr)
-            end if
-
+            ! if(mpi_rank==0)then
+            !     do irec=1,mpi_size-1
+            !         ! call mpi_send(itraj+irec,1,mpi_integer,irec,irec+mpi_size,mpi_comm_world,mpi_ierr)
+            !         call mpi_send(thermmass,1,mpi_double,irec,irec,mpi_comm_world,mpi_ierr)
+            !         call mpi_send(u0(itraj+irec,:),Nbeads,mpi_double,irec,irec+2*mpi_size,mpi_comm_world,mpi_ierr)
+            !     end do
+            ! else              
+            !     ! call mpi_recv(itraj_rec,1,mpi_integer,irec,irec+mpi_size,mpi_comm_world,status,mpi_ierr)
+            !     call mpi_recv(thermmass,1,mpi_double,0,mpi_rank,mpi_comm_world,status,mpi_ierr)
+            !     call mpi_recv(u0(itraj,:),Nbeads,mpi_double,0,mpi_rank+2*mpi_size,mpi_comm_world,status,mpi_ierr)
+            ! end if
+            ! call mpi_barrier(mpi_comm_world,mpi_ierr)
+            ! write(*,*) "thermass=",thermass
+            ! stop
         
             x0=u0(itraj,1)
             u=u0(itraj,:)
@@ -204,7 +215,10 @@ program pild
         end if
     end do
     
+    call mpi_barrier(mpi_comm_world,mpi_ierr)
+    
     if(mpi_rank==0)then
+        ! write(*,*) corre_fun(1,1,1:10)
         open(23,file="result_traj.dat",status='replace')
         t=0
         do i=1,nstep-1
@@ -224,6 +238,43 @@ program pild
     
 ! pause   
 end program
+
+subroutine init_seed(my_prl)
+	integer :: n, ival(8), v(3), i
+	integer, allocatable :: seed(:)
+	integer, optional :: my_prl
+	
+	call date_and_time(values=ival)
+	v(1) = 101 * ival(8) + 256*ival(7) + mod(ival(8), 103)
+    v(2) = ival(6) + 64*ival(5) + ( mod(1993, 2+ival(7) ) + 3 ) * 97 * ival(8) 
+    v(3) = ival(3) + 4*ival(2) + 16*ival(1) + ( mod(997, 1+ival(7)) + 5 ) * 101* ival(8)
+    
+ 	call random_seed(size=n)
+    allocate(seed(n))
+    
+    !-- Give the seed an implementation-dependent kick
+	call random_seed()
+	call random_seed(get=seed)
+	
+	!-- first Bias
+	do i=1, n
+    	seed(i) = seed(i) + v(mod(i-1, 3) + 1) + ival(8)
+  	enddo
+  	  	
+  	!-- second Bias
+  	if ( n >= size(ival) ) then
+        seed( 1 : size(ival) ) = seed( 1 : size(ival) ) + ival(:)
+    else
+        seed(:) = seed(:) + ival( 1 : n )
+    endif
+    
+    !-- if parallel
+    if ( present(my_prl) ) seed(:) = seed(:) + 113 * my_prl
+    
+  	call random_seed(put=seed)
+  	deallocate(seed)
+  	!has_initialed = .true.
+end subroutine init_seed
 
 
 
